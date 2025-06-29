@@ -564,6 +564,30 @@
             outline: none;
             border-color: var(--primary);
         }
+        
+        .custom-keyword {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .custom-keyword input {
+            flex: 1;
+            padding: 8px 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 30px;
+            color: white;
+        }
+        
+        .custom-keyword button {
+            padding: 8px 15px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -648,7 +672,13 @@
             <h2 class="card-title"><i class="fas fa-info-circle"></i> 自定义关键词选择</h2>
             
             <div class="customization-panel">
-                <div class="panel-title"><i class="fas fa-sliders-h"></i> 关键词筛选</div>
+                <div class="panel-title"><i class="fas fa-sliders-h"></i> 关键词管理</div>
+                
+                <div class="custom-keyword">
+                    <input type="text" id="custom-keyword" placeholder="输入自定义关键词...">
+                    <button class="btn-sm" id="add-keyword-btn"><i class="fas fa-plus"></i> 添加</button>
+                </div>
+                
                 <div class="keyword-filter">
                     <input type="text" id="keyword-filter" placeholder="输入关键词进行筛选...">
                     <button class="btn btn-sm" id="select-all-btn"><i class="fas fa-check-square"></i> 全选</button>
@@ -659,7 +689,7 @@
             <div class="tabs">
                 <div class="tab active" data-tab="events">
                     <i class="fas fa-trash-alt"></i> 事件类型 
-                    <span class="feature-counter" id="events-counter">45</span>
+                    <span class="feature-counter" id="events-counter">46</span>
                 </div>
                 <div class="tab" data-tab="configs">
                     <i class="fas fa-cog"></i> 配置关键字 
@@ -692,13 +722,13 @@
         <footer>
             <div class="logo">ADOFAI 自定义文件处理工具 <i class="fas fa-heart"></i></div>
             <p>超炳</p>
-            <p>ADOFAI奇妙小玩具 </p>
+            <p>ADOFAI神奇小玩具</p>
         </footer>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // 需要移除的事件类型列表（已添加AddParticle、SetParticle和MoveCamera）
+            // 需要移除的事件类型列表
             const eventsToRemove = [
                 'AddDecoration', 'AddText', 'AddObject', 'Checkpoint', 'SetHitsound', 
                 'PlaySound', 'SetPlanetRotation', 'Pause', 'AutoPlayTiles', 'ScalePlanets', 
@@ -708,7 +738,7 @@
                 'ScreenScroll', 'SetFrameRate', 'RepeatEvents', 'SetConditionalEvents', 
                 'EditorComment', 'Bookmark', 'Hold', 'SetHoldSound', 'MultiPlanet', 
                 'FreeRoam', 'FreeRoamTwirl', 'FreeRoamRemove', 'Hide', 'ScaleMargin', 'ScaleRadius',
-                'AddParticle', 'SetParticle', 'MoveCamera'
+                'AddParticle', 'SetParticle', 'MoveCamera', 'EmitParticle'
             ];
             
             // 需要移除的配置关键字列表
@@ -742,13 +772,12 @@
             const keywordFilter = document.getElementById('keyword-filter');
             const selectAllBtn = document.getElementById('select-all-btn');
             const deselectAllBtn = document.getElementById('deselect-all-btn');
+            const customKeywordInput = document.getElementById('custom-keyword');
+            const addKeywordBtn = document.getElementById('add-keyword-btn');
             
             // 存储用户选择的关键词
             let selectedKeywords = new Set([...eventsToRemove, ...configsToRemove]);
-            
-            let fileContent = '';
-            let processedContent = '';
-            let fileName = '';
+            let allKeywords = [...eventsToRemove, ...configsToRemove];
             
             // 初始化关键词列表
             function initializeKeywords() {
@@ -758,60 +787,83 @@
                 
                 // 初始化事件列表
                 eventsToRemove.forEach(event => {
-                    const eventItem = document.createElement('div');
-                    eventItem.className = 'feature-item removed';
-                    
-                    const checkbox = document.createElement('input');
-                    checkbox.type = 'checkbox';
-                    checkbox.id = `event-${event}`;
-                    checkbox.checked = selectedKeywords.has(event);
-                    checkbox.addEventListener('change', () => {
-                        if (checkbox.checked) {
-                            selectedKeywords.add(event);
-                        } else {
-                            selectedKeywords.delete(event);
-                        }
-                    });
-                    
-                    const label = document.createElement('label');
-                    label.htmlFor = `event-${event}`;
-                    label.textContent = event;
-                    
-                    eventItem.appendChild(checkbox);
-                    eventItem.appendChild(label);
-                    eventsGrid.appendChild(eventItem);
+                    createKeywordItem(event, eventsGrid, 'event');
                 });
                 
                 // 初始化配置关键字列表
                 configsToRemove.forEach(config => {
-                    const configItem = document.createElement('div');
-                    configItem.className = 'feature-item removed';
-                    
-                    const checkbox = document.createElement('input');
-                    checkbox.type = 'checkbox';
-                    checkbox.id = `config-${config}`;
-                    checkbox.checked = selectedKeywords.has(config);
-                    checkbox.addEventListener('change', () => {
-                        if (checkbox.checked) {
-                            selectedKeywords.add(config);
-                        } else {
-                            selectedKeywords.delete(config);
-                        }
-                    });
-                    
-                    const label = document.createElement('label');
-                    label.htmlFor = `config-${config}`;
-                    label.textContent = config;
-                    
-                    configItem.appendChild(checkbox);
-                    configItem.appendChild(label);
-                    configsGrid.appendChild(configItem);
+                    createKeywordItem(config, configsGrid, 'config');
                 });
             }
             
-            // 设置事件和配置数量
-            eventsCounter.textContent = eventsToRemove.length;
-            configsCounter.textContent = configsToRemove.length;
+            // 创建关键词项目
+            function createKeywordItem(keyword, container, type) {
+                const item = document.createElement('div');
+                item.className = 'feature-item removed';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `${type}-${keyword}`;
+                checkbox.checked = selectedKeywords.has(keyword);
+                checkbox.addEventListener('change', () => {
+                    if (checkbox.checked) {
+                        selectedKeywords.add(keyword);
+                    } else {
+                        selectedKeywords.delete(keyword);
+                    }
+                });
+                
+                const label = document.createElement('label');
+                label.htmlFor = `${type}-${keyword}`;
+                label.textContent = keyword;
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.innerHTML = '<i class="fas fa-times"></i>';
+                deleteBtn.className = 'btn-sm';
+                deleteBtn.style.marginLeft = 'auto';
+                deleteBtn.style.padding = '2px 8px';
+                deleteBtn.style.background = 'rgba(255, 0, 0, 0.2)';
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    // 从所有关键词中删除
+                    const index = allKeywords.indexOf(keyword);
+                    if (index !== -1) {
+                        allKeywords.splice(index, 1);
+                    }
+                    
+                    // 从事件或配置列表中删除
+                    if (type === 'event') {
+                        const eventIndex = eventsToRemove.indexOf(keyword);
+                        if (eventIndex !== -1) {
+                            eventsToRemove.splice(eventIndex, 1);
+                        }
+                    } else {
+                        const configIndex = configsToRemove.indexOf(keyword);
+                        if (configIndex !== -1) {
+                            configsToRemove.splice(configIndex, 1);
+                        }
+                    }
+                    
+                    // 从选择中删除
+                    selectedKeywords.delete(keyword);
+                    
+                    // 重新初始化列表
+                    initializeKeywords();
+                    updateCounters();
+                    showNotification(`已删除关键词: ${keyword}`, 'success');
+                });
+                
+                item.appendChild(checkbox);
+                item.appendChild(label);
+                item.appendChild(deleteBtn);
+                container.appendChild(item);
+            }
+            
+            // 更新计数器
+            function updateCounters() {
+                eventsCounter.textContent = eventsToRemove.length;
+                configsCounter.textContent = configsToRemove.length;
+            }
             
             // 标签切换功能
             document.querySelectorAll('.tab').forEach(tab => {
@@ -900,6 +952,26 @@
                     selectedKeywords.delete(keyword);
                 });
                 showNotification('已取消选择所有关键词', 'success');
+            });
+            
+            // 添加自定义关键词
+            addKeywordBtn.addEventListener('click', () => {
+                const keyword = customKeywordInput.value.trim();
+                if (keyword) {
+                    if (!allKeywords.includes(keyword)) {
+                        allKeywords.push(keyword);
+                        selectedKeywords.add(keyword);
+                        eventsToRemove.push(keyword); // 添加到事件列表
+                        
+                        // 重新初始化列表
+                        initializeKeywords();
+                        updateCounters();
+                        customKeywordInput.value = '';
+                        showNotification(`已添加关键词: ${keyword}`, 'success');
+                    } else {
+                        showNotification('关键词已存在', 'warning');
+                    }
+                }
             });
             
             // 关键词筛选
@@ -1076,6 +1148,7 @@
             
             // 初始化关键词列表
             initializeKeywords();
+            updateCounters();
             createParticles(30);
         });
     </script>
